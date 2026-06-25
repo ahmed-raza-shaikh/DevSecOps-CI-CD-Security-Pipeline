@@ -1,8 +1,25 @@
 # DevSecOps CI/CD Security Pipeline
 
+[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-PR%20security%20gates-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/devsecops-pipeline.yml)
+[![Docker](https://img.shields.io/badge/Docker-container%20scan-2496ED?style=for-the-badge&logo=docker&logoColor=white)](Dockerfile)
+[![Terraform](https://img.shields.io/badge/Terraform-IaC%20scan-844FBA?style=for-the-badge&logo=terraform&logoColor=white)](terraform/main.tf)
+[![Snyk](https://img.shields.io/badge/Snyk-SCA%20gate-4C4A73?style=for-the-badge&logo=snyk&logoColor=white)](package.json)
+[![OWASP ZAP](https://img.shields.io/badge/OWASP%20ZAP-DAST%20gate-00549E?style=for-the-badge&logo=owasp&logoColor=white)](zap/rules.tsv)
+[![Impact](https://img.shields.io/badge/Impact-70%25%20defect%20reduction-16A34A?style=for-the-badge)](#project-impact)
+
 An enterprise-style GitHub Actions security pipeline that shifts vulnerability detection into the pull request workflow. The project integrates **Trivy**, **tfsec**, **Snyk**, and **OWASP ZAP** to enforce automated PR-blocking on critical security findings before code reaches `main`.
 
 This repository is designed as a production-ready portfolio artifact for client onboarding conversations. It demonstrates how a security analyst or DevSecOps engineer can translate security policy into repeatable CI/CD controls that reduce production security defects, improve auditability, and give developers fast feedback while code is still fresh.
+
+<p align="center">
+  <img src="docs/assets/devsecops-pipeline.svg" alt="DevSecOps CI/CD Security Pipeline architecture diagram" width="100%">
+</p>
+
+## Executive Summary
+
+This project demonstrates how to turn security policy into a working CI/CD enforcement layer. Every pull request to `main` is assessed across four high-value security domains: container risk, infrastructure-as-code risk, dependency risk, and dynamic runtime risk.
+
+The result is a portfolio-ready implementation that shows both technical depth and business impact: critical findings become automated merge blockers, while scanner output becomes evidence for security reviews, client onboarding, and audit conversations.
 
 ## Project Impact
 
@@ -11,34 +28,32 @@ This repository is designed as a production-ready portfolio artifact for client 
 - Modeled the same control pattern used to reduce production security defect rate by **70% across 3 client codebases**.
 - Packaged the implementation as a reusable portfolio artifact for technical interviews, client onboarding, and security transformation discussions.
 
+## Impact Snapshot
+
+| Metric | Outcome |
+| --- | --- |
+| Production security defect reduction | 70% reduction across 3 client codebases |
+| Enforcement point | Pull requests targeting `main` |
+| Security coverage | Container, IaC, SCA, and DAST |
+| Merge policy | Critical findings block PR completion |
+| Evidence produced | GitHub Actions logs and ZAP report artifacts |
+
 ## Architecture
 
-```text
-Pull Request to main
-        |
-        v
-GitHub Actions Security Gates
-        |
-        +--> Build local Docker target
-        |
-        +--> Trivy
-        |     - Dockerfile and config misconfiguration scan
-        |     - Container OS and package vulnerability scan
-        |     - Fails on CRITICAL findings
-        |
-        +--> tfsec
-        |     - Terraform IaC misconfiguration scan
-        |     - Fails on CRITICAL findings
-        |
-        +--> Snyk
-        |     - Software Composition Analysis for npm dependencies
-        |     - Requires SNYK_TOKEN repository secret
-        |     - Fails on CRITICAL findings
-        |
-        +--> OWASP ZAP
-              - Starts the application container inside CI
-              - Runs baseline DAST against the local service
-              - Fails when configured high-risk rules are triggered
+```mermaid
+flowchart LR
+    pr["Pull Request to main"] --> gha["GitHub Actions PR Security Gates"]
+    gha --> build["Build local Docker target"]
+    build --> trivy["Trivy container and config scan"]
+    build --> tfsec["tfsec Terraform IaC scan"]
+    build --> snyk["Snyk dependency SCA"]
+    build --> zap["OWASP ZAP baseline DAST"]
+    trivy --> decision{"Critical finding?"}
+    tfsec --> decision
+    snyk --> decision
+    zap --> decision
+    decision -- "Yes" --> block["Fail check and block PR"]
+    decision -- "No" --> merge["Security gate passes"]
 ```
 
 ## Security Gates
@@ -49,6 +64,8 @@ GitHub Actions Security Gates
 | Infrastructure as Code | tfsec | Terraform cloud misconfigurations | Blocks on critical IaC findings |
 | Software Composition Analysis | Snyk | Vulnerable open-source npm dependencies | Blocks on critical dependency risk |
 | Dynamic Application Security Testing | OWASP ZAP | Runtime HTTP security defects against a live container | Blocks when configured ZAP rules fail |
+
+For the detailed governance mapping, see [docs/security-control-matrix.md](docs/security-control-matrix.md).
 
 ## PR-Blocking Mechanism
 
@@ -73,6 +90,10 @@ Blocking controls are implemented through:
 │       └── devsecops-pipeline.yml
 ├── app/
 │   └── server.js
+├── docs/
+│   ├── assets/
+│   │   └── devsecops-pipeline.svg
+│   └── security-control-matrix.md
 ├── terraform/
 │   └── main.tf
 ├── zap/
@@ -121,6 +142,16 @@ That shift reduces production risk by:
 - Preventing repeated classes of defects through automated policy enforcement.
 - Creating audit-friendly evidence that security controls ran on every protected change.
 - Standardizing security review across application, container, infrastructure, dependency, and runtime layers.
+
+## Client Onboarding Use Case
+
+This repository can be used as a working demonstration during onboarding sessions with engineering teams or clients. It gives stakeholders a concrete view of:
+
+- What security checks run on every pull request.
+- Why critical findings block merge.
+- Which tool owns each layer of security coverage.
+- How evidence is captured for review and audit follow-up.
+- How branch protection turns scanner output into a real governance control.
 
 ## Branch Protection Recommendation
 
