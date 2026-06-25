@@ -1,0 +1,18 @@
+{
+  "name": "devsecops-cicd-security-pipeline",
+  "version": "1.0.0",
+  "description": "Portfolio artifact demonstrating PR-blocking DevSecOps security gates with Trivy, tfsec, Snyk, and OWASP ZAP.",
+  "private": true,
+  "main": "app/server.js",
+  "scripts": {
+    "start": "node app/server.js"
+  },
+  "dependencies": {
+    "express": "4.17.1",
+    "lodash": "4.17.19",
+    "minimist": "0.0.8"
+  },
+  "engines": {
+    "node": ">=12"
+  }
+}
