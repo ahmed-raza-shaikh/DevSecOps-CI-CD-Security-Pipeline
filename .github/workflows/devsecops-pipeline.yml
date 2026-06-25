@@ -1,0 +1,176 @@
+name: DevSecOps CI/CD Security Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+env:
+  IMAGE_NAME: devsecops-security-pipeline-demo
+  IMAGE_TAG: pr-${{ github.event.pull_request.number || github.run_number }}
+  TARGET_PORT: "8080"
+  TARGET_URL: http://127.0.0.1:8080
+
+jobs:
+  security-gates:
+    name: PR Security Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------------------
+      # Docker build target for both Trivy image scanning and OWASP ZAP DAST.
+      # If the application cannot build, the pipeline stops before scanning.
+      # --------------------------------------------------------------------
+      - name: Build local application container
+        run: |
+          set -euo pipefail
+          docker build \
+            --tag "${IMAGE_NAME}:${IMAGE_TAG}" \
+            .
+
+      # --------------------------------------------------------------------
+      # Trivy configuration scan:
+      # - Scans Dockerfile and repository configuration for insecure patterns.
+      # - --severity CRITICAL limits blocking to critical findings.
+      # - --exit-code 1 guarantees GitHub marks the check as failed.
+      # --------------------------------------------------------------------
+      - name: Trivy Dockerfile and IaC misconfiguration scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
+          format: table
+
+      # --------------------------------------------------------------------
+      # Trivy image vulnerability scan:
+      # - Scans the built container image for OS and package vulnerabilities.
+      # - Critical vulnerabilities return exit code 1 and block the PR.
+      # --------------------------------------------------------------------
+      - name: Trivy container image vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          vuln-type: os,library
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
+          format: table
+
+      # --------------------------------------------------------------------
+      # tfsec Terraform scan:
+      # - Scans Terraform IaC for critical cloud misconfigurations.
+      # - The sample main.tf intentionally exposes SSH to 0.0.0.0/0.
+      # - tfsec exits non-zero when critical findings are present.
+      # --------------------------------------------------------------------
+      - name: tfsec Terraform critical misconfiguration scan
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          additional_args: --minimum-severity CRITICAL
+
+      # --------------------------------------------------------------------
+      # Snyk Software Composition Analysis:
+      # - Requires a repository secret named SNYK_TOKEN.
+      # - Configure it in GitHub: Settings > Secrets and variables > Actions.
+      # - --severity-threshold=critical makes only critical dependency issues
+      #   block the PR through the Snyk CLI exit code.
+      # --------------------------------------------------------------------
+      - name: Set up Node.js for dependency scanning
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install application dependencies
+        run: |
+          set -euo pipefail
+          npm ci
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Snyk SCA critical dependency scan
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SNYK_TOKEN:-}" ]; then
+            echo "::error::Missing SNYK_TOKEN secret. Add it under repository Actions secrets."
+            exit 1
+          fi
+
+          snyk test \
+            --severity-threshold=critical \
+            --fail-on=all \
+            --package-manager=npm
+
+      # --------------------------------------------------------------------
+      # OWASP ZAP baseline DAST:
+      # - Runs the locally built app container inside GitHub Actions.
+      # - Waits for the health endpoint before scanning.
+      # - zap-baseline.py returns a non-zero exit code for configured failures.
+      # - The generated zap/rules.tsv escalates common high-risk findings so
+      #   the PR fails when ZAP detects security defects in the running app.
+      # --------------------------------------------------------------------
+      - name: Start local container for DAST
+        run: |
+          set -euo pipefail
+          docker run \
+            --detach \
+            --rm \
+            --name devsecops-zap-target \
+            --publish "${TARGET_PORT}:8080" \
+            "${IMAGE_NAME}:${IMAGE_TAG}"
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent "${TARGET_URL}/health" >/dev/null; then
+              echo "Application is ready for DAST."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "::error::Application container did not become healthy before ZAP scan."
+          docker logs devsecops-zap-target || true
+          exit 1
+
+      - name: OWASP ZAP baseline DAST scan
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network host \
+            --volume "${{ github.workspace }}/zap:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t "${TARGET_URL}" \
+              -r zap-baseline-report.html \
+              -w zap-baseline-report.md \
+              -c /zap/wrk/rules.tsv
+
+      - name: Stop local DAST container
+        if: always()
+        run: |
+          docker stop devsecops-zap-target || true
+
+      - name: Upload ZAP report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: |
+            zap/zap-baseline-report.html
+            zap/zap-baseline-report.md
+          if-no-files-found: ignore
