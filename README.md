@@ -80,12 +80,16 @@ Blocking controls are implemented through:
 - `Snyk`: `--severity-threshold=critical` with `--fail-on=all`.
 - `OWASP ZAP`: `zap-baseline.py` with a committed `zap/rules.tsv` fail policy.
 - Shell safety: `set -euo pipefail` in CI script blocks so command failures stop the job immediately.
+- Change classification: documentation and governance-only pull requests still satisfy the required check, while application, container, dependency, Terraform, and ZAP policy changes run the full scanner suite.
 
 ## Repository Layout
 
 ```text
 .
 ├── .github/
+│   ├── CODEOWNERS
+│   ├── dependabot.yml
+│   ├── pull_request_template.md
 │   └── workflows/
 │       └── devsecops-pipeline.yml
 ├── app/
@@ -93,16 +97,29 @@ Blocking controls are implemented through:
 ├── docs/
 │   ├── assets/
 │   │   └── devsecops-pipeline.svg
+│   ├── branch-protection.md
+│   ├── quickstart.md
+│   ├── remediation-playbook.md
 │   └── security-control-matrix.md
 ├── terraform/
 │   └── main.tf
 ├── zap/
 │   └── rules.tsv
 ├── Dockerfile
+├── Makefile
 ├── package-lock.json
 ├── package.json
-└── README.md
+├── README.md
+└── SECURITY.md
 ```
+
+## Supporting Documentation
+
+- [Quickstart](docs/quickstart.md): local smoke tests and expected scanner behavior.
+- [Branch Protection Model](docs/branch-protection.md): recommended merge governance settings.
+- [Remediation Playbook](docs/remediation-playbook.md): response guidance for blocked pull requests.
+- [Security Control Matrix](docs/security-control-matrix.md): control-to-evidence mapping for reviews and audits.
+- [Security Policy](SECURITY.md): disclosure guidance and intentional fixture notes.
 
 ## Intentional Vulnerabilities
 
