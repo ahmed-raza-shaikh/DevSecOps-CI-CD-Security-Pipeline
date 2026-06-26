@@ -126,7 +126,7 @@ jobs:
       # --------------------------------------------------------------------
       - name: Set up Node.js for dependency scanning
         if: steps.changes.outputs.scan_required == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: npm
