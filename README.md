@@ -165,19 +165,6 @@ Recommended settings:
 - Require the `PR Security Gates` check.
 - Restrict direct pushes to `main`.
 
-## Portfolio Talking Points
-
-This project demonstrates practical DevSecOps ownership across:
-
-- CI/CD security architecture.
-- Shift-left security automation.
-- Container vulnerability scanning.
-- Terraform IaC misconfiguration detection.
-- Software Composition Analysis governance.
-- Baseline DAST against ephemeral CI environments.
-- Automated PR-blocking using deterministic scanner exit codes.
-- Security control design that maps directly to developer workflow.
-
 ## Disclaimer
 
 The vulnerable files in this repository are deliberate test fixtures. They are designed to trigger security tools and should not be deployed to a real production environment.
