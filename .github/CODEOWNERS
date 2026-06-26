@@ -1,0 +1,7 @@
+# Security-sensitive changes should be reviewed by the repository owner.
+* @ahmed-raza-shaikh
+
+# Pipeline and scanner policy changes are high-impact.
+.github/workflows/ @ahmed-raza-shaikh
+terraform/ @ahmed-raza-shaikh
+zap/ @ahmed-raza-shaikh
